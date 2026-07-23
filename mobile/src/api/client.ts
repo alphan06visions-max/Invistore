@@ -1,157 +1,174 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// API client — Supabase for chat/auth, REST fallback for posts/calls
+import { supabase } from './supabase';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://nexus-backend.fly.dev';
-const WS_BASE = process.env.EXPO_PUBLIC_WS_URL || 'wss://nexus-backend.fly.dev/ws';
+// ---------- Supabase Messages (Realtime) ----------
 
-async function token() {
-  return await AsyncStorage.getItem('nexus_token');
-}
+export type Message = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+};
 
-async function headers() {
-  const t = await token();
-  return {
-    'Content-Type': 'application/json',
-    ...(t ? { Authorization: `Bearer ${t}` } : {}),
-  };
-}
+export type Conversation = {
+  id: string;
+  participants: string[];
+  last_message: string | null;
+  last_message_at: string | null;
+  other_user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  } | null;
+};
 
-async function handle(res: Response) {
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(body || res.statusText);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
-}
+export const db = {
+  // Conversations
+  conversations: async (userId: string) => {
+    // Get all conversations where user is a participant
+    const { data } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+    if (!data) return [];
+    const ids = data.map((d) => d.conversation_id);
 
-export const api = {
-  // Auth
-  register: (email: string, username: string, password: string) =>
-    fetch(`${BASE}/api/auth/register`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, username, password }),
-    }).then(handle),
-
-  login: (email: string, password: string) =>
-    fetch(`${BASE}/api/auth/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }).then(handle),
-
-  // Posts
-  feed: () =>
-    fetch(`${BASE}/api/posts`, { headers: headers() as any }).then(handle),
-
-  post: (id: string) =>
-    fetch(`${BASE}/api/posts/${id}`, { headers: headers() as any }).then(handle),
-
-  createPost: (imageUrl: string, caption: string, location: string) => {
-    const form = new FormData();
-    form.append('image_url', imageUrl);
-    form.append('caption', caption);
-    form.append('location', location);
-    return fetch(`${BASE}/api/posts`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token()}` },
-      body: form,
-    }).then(handle);
+    const { data: convos } = await supabase
+      .from('conversations')
+      .select('*')
+      .in('id', ids)
+      .order('last_message_at', { ascending: false });
+    return (convos || []) as Conversation[];
   },
 
-  toggleLike: (postId: string) =>
-    fetch(`${BASE}/api/posts/${postId}/like`, {
-      method: 'POST', headers: headers() as any,
-    }).then(handle),
-
-  comments: (postId: string) =>
-    fetch(`${BASE}/api/posts/${postId}/comments`, { headers: headers() as any }).then(handle),
-
-  addComment: (postId: string, content: string) =>
-    fetch(`${BASE}/api/posts/${postId}/comments`, {
-      method: 'POST', headers: headers() as any,
-      body: JSON.stringify({ content }),
-    }).then(handle),
-
-  // Stories
-  stories: () =>
-    fetch(`${BASE}/api/stories`, { headers: headers() as any }).then(handle),
-
-  createStory: (mediaUrl: string) => {
-    const form = new FormData();
-    form.append('media_url', mediaUrl);
-    return fetch(`${BASE}/api/stories`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token()}` },
-      body: form,
-    }).then(handle);
+  // Messages thread
+  thread: async (conversationId: string) => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+    return (data || []) as Message[];
   },
 
-  // Users
-  search: (q: string) =>
-    fetch(`${BASE}/api/users/search?q=${encodeURIComponent(q)}`, { headers: headers() as any }).then(handle),
+  // Send message
+  sendMessage: async (conversationId: string, senderId: string, content: string) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        content,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Message;
+  },
 
-  profile: (username: string) =>
-    fetch(`${BASE}/api/users/${username}`, { headers: headers() as any }).then(handle),
+  // Mark messages as read
+  markRead: async (conversationId: string, userId: string) => {
+    await supabase
+      .from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', userId)
+      .is('read_at', null);
+  },
 
-  userPosts: (username: string) =>
-    fetch(`${BASE}/api/users/${username}/posts`, { headers: headers() as any }).then(handle),
+  // Get or create 1-1 conversation
+  getOrCreateConversation: async (userId: string, otherUserId: string) => {
+    // Check existing
+    const { data: myConvos } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+    const myIds = (myConvos || []).map((c) => c.conversation_id);
 
-  toggleFollow: (username: string) =>
-    fetch(`${BASE}/api/users/${username}/follow`, {
-      method: 'POST', headers: headers() as any,
-    }).then(handle),
+    if (myIds.length > 0) {
+      const { data: shared } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', otherUserId)
+        .in('conversation_id', myIds);
+      if (shared && shared.length > 0) return shared[0].conversation_id;
+    }
 
-  updateProfile: (bio: string, avatar: string) =>
-    fetch(`${BASE}/api/users/me`, {
-      method: 'PUT', headers: headers() as any,
-      body: JSON.stringify({ bio, avatar }),
-    }).then(handle),
+    // Create new
+    const { data: conv } = await supabase
+      .from('conversations')
+      .insert({ is_group: false })
+      .select()
+      .single();
+    if (!conv) throw new Error('Failed to create conversation');
 
-  // Messages
-  sendMessage: (to: string, content: string) =>
-    fetch(`${BASE}/api/messages`, {
-      method: 'POST', headers: headers() as any,
-      body: JSON.stringify({ to, content }),
-    }).then(handle),
+    // Add participants
+    await supabase.from('conversation_participants').insert([
+      { conversation_id: conv.id, user_id: userId },
+      { conversation_id: conv.id, user_id: otherUserId },
+    ]);
 
-  thread: (userId: string) =>
-    fetch(`${BASE}/api/messages/${userId}`, { headers: headers() as any }).then(handle),
+    return conv.id;
+  },
 
-  conversations: () =>
-    fetch(`${BASE}/api/conversations`, { headers: headers() as any }).then(handle),
+  // Realtime subscription
+  subscribeToMessages: (
+    conversationId: string,
+    onInsert: (msg: Message) => void,
+    onUpdate: (msg: Message) => void,
+  ) => {
+    const channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => onInsert(payload.new as Message),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => onUpdate(payload.new as Message),
+      )
+      .subscribe();
 
-  markRead: (userId: string) =>
-    fetch(`${BASE}/api/messages/${userId}/read`, {
-      method: 'POST', headers: headers() as any,
-    }).then(handle),
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
 
-  // Notifications
-  notifications: () =>
-    fetch(`${BASE}/api/notifications`, { headers: headers() as any }).then(handle),
-
-  // Upload
-  upload: async (uri: string) => {
-    const t = await token();
-    const form = new FormData();
-    const filename = uri.split('/').pop() || 'photo.jpg';
-    const ext = filename.split('.').pop()?.toLowerCase();
-    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-    form.append('file', { uri, name: filename, type: mime } as any);
-    const res = await fetch(`${BASE}/api/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${t}` },
-      body: form,
+  // Typing indicator via Supabase Presence (simplified)
+  subscribeTyping: (
+    conversationId: string,
+    userId: string,
+    onTyping: (userId: string) => void,
+  ) => {
+    const channel = supabase.channel(`typing:${conversationId}`, {
+      config: { presence: { key: userId } },
     });
-    return handle(res);
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      Object.keys(state).forEach((key) => {
+        if (key !== userId) onTyping(key);
+      });
+    });
+    channel.subscribe();
+    return channel;
   },
 
-  getToken: token,
-  getWSURL: () => `${WS_BASE}?token=${AsyncStorage.getItem('nexus_token')}`,
-
-  // Agora calls
-  getCallToken: (channelName: string) =>
-    fetch(`${BASE}/api/call/token`, {
-      method: 'POST',
-      headers: headers() as any,
-      body: JSON.stringify({ channelName }),
-    }).then(handle),
+  sendTyping: (channel: any) => {
+    channel.track({ typing: true });
+  },
 };

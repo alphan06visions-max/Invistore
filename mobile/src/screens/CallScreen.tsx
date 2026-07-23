@@ -1,14 +1,9 @@
-// CallScreen.tsx — Agora video/audio call
-// Uses a WebView-based approach with Agora Web SDK for maximum compatibility
-// No native module linking required — works on Expo Go + EAS Build
-
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+// CallScreen — Agora React Native SDK (native, pas WebView)
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Alert,
+  View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { PhoneOff, Video, Mic, MicOff, VideoOff } from '../components/icons';
-import { api } from '../api/client';
+import { PhoneOff, Mic, MicOff, VideoOff, Video as VideoIcon, CameraSwitch } from '../components/icons';
 import { theme } from '../theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,197 +18,128 @@ type CallParams = {
 export function CallScreen({ route, navigation }: any) {
   const { channelName, isCaller, remoteUsername } = route.params as CallParams;
   const { user } = useAuth();
-  const [callState, setCallState] = useState<'connecting' | 'ringing' | 'active' | 'ended'>(
-    isCaller ? 'ringing' : 'connecting'
-  );
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
-  const [token, setToken] = useState('');
-  const [uid, setUid] = useState(0);
-  const [appId, setAppId] = useState('');
-  const webViewRef = useRef<WebView>(null);
+  const [callState, setCallState] = useState<'connecting' | 'active' | 'ended'>('connecting');
+  const [duration, setDuration] = useState(0);
+  const timerRef = useRef<any>(null);
+  const engineRef = useRef<any>(null);
 
-  const YOUR_AGORA_APP_ID = 'YOUR_AGORA_APP_ID'; // Will be fetched dynamically
-
-  // Fetch Agora token from backend
   useEffect(() => {
-    (async () => {
+    let agoraEngine: any = null;
+
+    const init = async () => {
       try {
-        const res = await api.getCallToken(channelName);
-        setToken(res.token);
-        setUid(res.uid);
-        setAppId(res.appId);
-      } catch (e) {
-        Alert.alert('Error', 'Failed to get call token');
+        // Dynamically import Agora (only works in native build, not Expo Go)
+        const AgoraRTC = require('agora-react-native-rtc');
+        const appId = process.env.EXPO_PUBLIC_AGORA_APP_ID || '';
+
+        agoraEngine = await AgoraRTC.default.create(appId);
+        engineRef.current = agoraEngine;
+
+        await agoraEngine.enableVideo();
+        await agoraEngine.setChannelProfile(1); // live broadcasting
+        await agoraEngine.setClientRole(1); // broadcaster
+
+        agoraEngine.addListener('JoinChannelSuccess', () => {
+          setCallState('active');
+          // Start timer
+          timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
+        });
+
+        agoraEngine.addListener('UserJoined', (_uid: number, _elapsed: number) => {
+          // Remote user joined
+        });
+
+        agoraEngine.addListener('UserOffline', () => {
+          endCall();
+        });
+
+        await agoraEngine.joinChannel('', channelName, null, 0);
+      } catch (e: any) {
+        console.error('Agora init error:', e);
+        Alert.alert('Call Error', 'Failed to initialize call: ' + (e.message || 'unknown'));
         navigation.goBack();
       }
-    })();
-  }, [channelName]);
+    };
 
-  // Ringing timeout — auto-hangup after 60s
-  useEffect(() => {
-    if (callState !== 'ringing') return;
-    const t = setTimeout(() => {
-      setCallState('ended');
-      setTimeout(() => navigation.goBack(), 2000);
-    }, 60000);
-    return () => clearTimeout(t);
-  }, [callState]);
+    init();
 
-  const endCall = useCallback(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (engineRef.current) {
+        engineRef.current.destroy().catch(() => {});
+      }
+    };
+  }, []);
+
+  const endCall = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     setCallState('ended');
-    setTimeout(() => navigation.goBack(), 1500);
-  }, [navigation]);
-
-  const toggleMute = () => {
-    setMuted((m) => {
-      const newVal = !m;
-      webViewRef.current?.injectJavaScript(`
-        try { window.agoraLocalAudioTrack?.setEnabled(${!newVal}); } catch(e){}
-        true;
-      `);
-      return newVal;
-    });
+    setTimeout(() => navigation.goBack(), 500);
   };
 
-  const toggleCam = () => {
-    setCamOff((c) => {
-      const newVal = !c;
-      webViewRef.current?.injectJavaScript(`
-        try { window.agoraLocalVideoTrack?.setEnabled(${!newVal}); } catch(e){}
-        true;
-      `);
-      return newVal;
-    });
+  const toggleMute = async () => {
+    if (engineRef.current) {
+      await engineRef.current.muteLocalAudioStream(!muted);
+      setMuted(!muted);
+    }
   };
 
-  // Agora Web SDK HTML page
-  const agoraHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#000;overflow:hidden}
-#remote-video{width:100vw;height:100vh;object-fit:cover}
-#local-video{position:fixed;top:40px;right:16px;width:120px;height:160px;border-radius:12px;border:2px solid #d4852c;object-fit:cover;z-index:10}
-#status{position:fixed;bottom:120px;left:0;right:0;text-align:center;color:#f0b854;font-family:sans-serif;font-size:14px;z-index:5}
-</style>
-<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.22.0.js"></script>
-</head>
-<body>
-<video id="remote-video" autoplay playsinline></video>
-<video id="local-video" autoplay playsinline muted></video>
-<div id="status">connecting…</div>
-<script>
-const APP_ID = '${appId}';
-const TOKEN = '${token}';
-const CHANNEL = '${channelName}';
-const UID = ${uid};
-let client, localAudioTrack, localVideoTrack;
-window.agoraLocalAudioTrack = null;
-window.agoraLocalVideoTrack = null;
-
-async function start() {
-  client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
-  client.on('user-published', async (user, mediaType) => {
-    await client.subscribe(user, mediaType);
-    if (mediaType === 'video') {
-      user.videoTrack.play('remote-video');
-      document.getElementById('status').textContent = '';
+  const toggleCam = async () => {
+    if (engineRef.current) {
+      await engineRef.current.muteLocalVideoStream(!camOff);
+      setCamOff(!camOff);
     }
-    if (mediaType === 'audio') {
-      user.audioTrack.play();
-    }
-  });
+  };
 
-  client.on('user-unpublished', (user) => {
-    document.getElementById('status').textContent = 'call ended';
-  });
+  const switchCamera = async () => {
+    if (engineRef.current) await engineRef.current.switchCamera();
+  };
 
-  client.on('user-joined', () => {
-    document.getElementById('status').textContent = '';
-  });
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
 
-  try {
-    await client.join(APP_ID, CHANNEL, TOKEN, UID);
-    localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-    localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-    window.agoraLocalAudioTrack = localAudioTrack;
-    window.agoraLocalVideoTrack = localVideoTrack;
-    await client.publish([localAudioTrack, localVideoTrack]);
-    localVideoTrack.play('local-video');
-    document.getElementById('status').textContent = '';
-  } catch(e) {
-    document.getElementById('status').textContent = 'connection failed: ' + e.message;
-  }
-}
-
-start();
-</script>
-</body>
-</html>`;
-
-  // If token not yet loaded, show loader
-  if (!token) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Connecting…</Text>
-      </View>
-    );
-  }
-
-  if (callState === 'ended') {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.endedText}>Call Ended</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.doneBtn}>
-          <Text style={styles.doneBtnText}>Done</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (callState === 'ringing') {
-    return (
-      <View style={styles.ringingContainer}>
-        <Text style={styles.ringingTitle}>Calling</Text>
-        <Text style={styles.ringingName}>{remoteUsername}</Text>
-        <ActivityIndicator size="small" color={theme.colors.primaryGlow} style={{ marginTop: 20 }} />
-        <View style={styles.ringingActions}>
-          <TouchableOpacity onPress={endCall} style={styles.hangupBtn}>
-            <PhoneOff size={30} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // Active call — WebView with Agora
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ html: agoraHTML }}
-        style={styles.webview}
-        javaScriptEnabled
-        domStorageEnabled
-        mediaPlaybackRequiresUserAction={false}
-        allowsInlineMediaPlayback
-        originWhitelist={['*']}
-      />
+      {/* Remote video (full screen) */}
+      <View style={styles.remoteVideo}>
+        {callState === 'connecting' && (
+          <View style={styles.connectingOverlay}>
+            <Text style={styles.callingText}>
+              {isCaller ? 'Calling…' : 'Connecting…'}
+            </Text>
+            <Text style={styles.remoteName}>{remoteUsername}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Local video (pip) */}
+      {callState === 'active' && (
+        <View style={styles.localVideo}>
+          <Text style={styles.localLabel}>You</Text>
+        </View>
+      )}
+
+      {/* Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity onPress={toggleMute} style={[styles.ctrlBtn, muted && styles.ctrlBtnActive]}>
-          {muted ? <MicOff size={22} color="#fff" /> : <Mic size={22} color="#fff" />}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={endCall} style={styles.hangupBtn}>
-          <PhoneOff size={30} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={toggleCam} style={[styles.ctrlBtn, camOff && styles.ctrlBtnActive]}>
-          {camOff ? <VideoOff size={22} color="#fff" /> : <Video size={22} color="#fff" />}
+        <Text style={styles.duration}>{fmt(duration)}</Text>
+        <View style={styles.controlRow}>
+          <TouchableOpacity onPress={toggleMute} style={[styles.ctrlBtn, muted && styles.ctrlBtnActive]}>
+            {muted ? <MicOff size={22} color="#fff" /> : <Mic size={22} color="#fff" />}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={endCall} style={styles.endBtn}>
+            <PhoneOff size={26} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleCam} style={[styles.ctrlBtn, camOff && styles.ctrlBtnActive]}>
+            {camOff ? <VideoOff size={22} color="#fff" /> : <VideoIcon size={22} color="#fff" />}
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity onPress={switchCamera} style={styles.switchBtn}>
+          <CameraSwitch size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -222,18 +148,36 @@ start();
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  webview: { flex: 1 },
-  loadingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: theme.colors.primaryGlow, fontFamily: theme.fonts.body, fontSize: 16, marginTop: 16 },
-  endedText: { color: theme.colors.foreground, fontFamily: theme.fonts.displayBold, fontSize: 28, marginBottom: 24 },
-  doneBtn: { backgroundColor: theme.colors.primary, borderRadius: 24, paddingHorizontal: 32, paddingVertical: 12 },
-  doneBtnText: { color: theme.colors.background, fontFamily: theme.fonts.bodySemi, fontSize: 16 },
-  ringingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  ringingTitle: { color: theme.colors.muted, fontFamily: theme.fonts.body, fontSize: 14, letterSpacing: 4, textTransform: 'uppercase' },
-  ringingName: { color: theme.colors.foreground, fontFamily: theme.fonts.displayBold, fontSize: 32, marginTop: 12 },
-  ringingActions: { position: 'absolute', bottom: 80 },
-  controls: { position: 'absolute', bottom: 60, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32 },
-  ctrlBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  ctrlBtnActive: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  hangupBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#e0432f', alignItems: 'center', justifyContent: 'center' },
+  remoteVideo: { flex: 1 },
+  connectingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  callingText: { color: '#fff', fontSize: 22, fontWeight: '600' },
+  remoteName: { color: 'rgba(255,255,255,0.7)', fontSize: 16, marginTop: 8 },
+  localVideo: {
+    position: 'absolute', top: 60, right: 16,
+    width: 120, height: 180, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  localLabel: { color: '#fff', fontSize: 12 },
+  controls: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingBottom: 40, paddingTop: 20,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  duration: { color: '#fff', fontSize: 16, marginBottom: 16 },
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  ctrlBtn: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  ctrlBtnActive: { backgroundColor: 'rgba(255,255,255,0.4)' },
+  endBtn: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  switchBtn: { marginTop: 16, padding: 8 },
 });

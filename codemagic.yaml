@@ -1,5 +1,5 @@
-# Codemagic YAML — Build APK for NEXUS React Native (Expo) app
-# Build natif Android direct — pas besoin de projet Expo/EAS
+# Codemagic YAML — NEXUS Build (Expo + Gradle natif)
+# Supabase + Agora ready
 workflows:
   nexus-android-apk:
     name: NEXUS Android APK
@@ -8,6 +8,10 @@ workflows:
       node: 20.11.0
       android_signing:
         - nexus_keystore
+      vars:
+        EXPO_PUBLIC_SUPABASE_URL: https://YOUR_PROJECT.supabase.co
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: your-anon-key
+        EXPO_PUBLIC_AGORA_APP_ID: your-agora-app-id
     scripts:
       - name: Install dependencies
         script: |

@@ -15,7 +15,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "NEXUS needs access to your photos for posting moments."
+        "NSPhotoLibraryUsageDescription": "NEXUS needs access to your photos for posting moments.",
+        "NSMicrophoneUsageDescription": "NEXUS needs microphone access for calls."
       }
     },
     "android": {
@@ -23,13 +24,16 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0a06"
       },
-      "package": "com.nexus.social"
+      "package": "com.nexus.social",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
     },
-    "extra": {
-      "eas": {
-        "projectId": "your-eas-project-id"
-      }
-    },
-    "plugins": ["expo-font", "expo-image-picker"]
+    "plugins": [
+      "expo-font",
+      "expo-image-picker"
+    ]
   }
 }

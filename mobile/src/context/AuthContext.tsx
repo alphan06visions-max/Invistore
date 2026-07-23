@@ -1,70 +1,101 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../api/client';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { supabase } from '../api/supabase';
+import { Session, User } from '@supabase/supabase-js';
 
-type User = { id: string; username: string; email: string; bio: string; avatar: string };
-
-type Ctx = {
-  user: User | null;
-  token: string | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, username: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  updateUser: (u: Partial<User>) => void;
+export type Profile = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  bio: string;
 };
 
-const AuthContext = createContext<Ctx>({} as Ctx);
+type AuthCtx = {
+  session: Session | null;
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, username: string) => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
+  updateProfile: (p: Partial<Profile>) => Promise<void>;
+};
+
+const AuthContext = createContext<AuthCtx>({} as AuthCtx);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Listen to Supabase auth state changes
   useEffect(() => {
-    (async () => {
-      const t = await AsyncStorage.getItem('nexus_token');
-      const u = await AsyncStorage.getItem('nexus_user');
-      if (t && u) {
-        setToken(t);
-        setUser(JSON.parse(u));
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
       setLoading(false);
-    })();
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+      else setProfile(null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const res = await api.login(email, password);
-    await AsyncStorage.setItem('nexus_token', res.token);
-    await AsyncStorage.setItem('nexus_user', JSON.stringify(res.user));
-    setToken(res.token);
-    setUser(res.user);
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (data) setProfile(data as Profile);
   };
 
-  const signUp = async (email: string, username: string, password: string) => {
-    const res = await api.register(email, username, password);
-    await AsyncStorage.setItem('nexus_token', res.token);
-    await AsyncStorage.setItem('nexus_user', JSON.stringify(res.user));
-    setToken(res.token);
-    setUser(res.user);
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message };
+  };
+
+  const signUp = async (email: string, password: string, username: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username } },
+    });
+    if (error) return { error: error.message };
+
+    // Create profile row
+    if (data.user) {
+      await supabase.from('profiles').insert({
+        id: data.user.id,
+        username,
+        display_name: username,
+        avatar_url: '',
+        bio: '',
+      });
+    }
+    return {};
   };
 
   const signOut = async () => {
-    await AsyncStorage.multiRemove(['nexus_token', 'nexus_user']);
-    setToken(null);
-    setUser(null);
+    await supabase.auth.signOut();
+    setProfile(null);
   };
 
-  const updateUser = (u: Partial<User>) => {
-    if (user) {
-      const updated = { ...user, ...u };
-      setUser(updated);
-      AsyncStorage.setItem('nexus_user', JSON.stringify(updated));
-    }
+  const updateProfile = async (p: Partial<Profile>) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(p).eq('id', user.id);
+    if (!error && profile) setProfile({ ...profile, ...p });
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut, updateUser }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

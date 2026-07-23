@@ -1,35 +1,49 @@
-// CallListener.tsx — Global listener for incoming calls via WebSocket
-// Mounted at the app root, listens for call_invite events and navigates to IncomingCall
-
+// CallListener — Listen for incoming calls via Supabase Realtime
 import React, { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useSocket } from '../context/SocketContext';
+import { useAuth } from './AuthContext';
+import { supabase } from '../api/supabase';
 
 export function CallListener() {
-  const { subscribe } = useSocket();
+  const { user } = useAuth();
   const navigation = useNavigation<any>();
   const isInCall = useRef(false);
 
   useEffect(() => {
-    const unsub = subscribe((msg: any) => {
-      if (msg.type === 'call_invite' && !isInCall.current) {
+    if (!user) return;
+
+    const channel = supabase.channel(`call:${user.id}`);
+    channel.on('broadcast', { event: 'call_invite' }, (payload: any) => {
+      if (!isInCall.current) {
         isInCall.current = true;
-        navigation.navigate('IncomingCall', {
-          channelName: msg.channel,
-          caller: msg.caller || 'Unknown',
-          fromUserId: msg.from,
-        });
-      } else if (msg.type === 'call_end') {
-        isInCall.current = false;
-        navigation.goBack();
+        const { channelName, callerName, fromUserId, isVideo } = payload.payload || payload;
+        if (isVideo) {
+          navigation.navigate('CallScreen', {
+            channelName,
+            isCaller: false,
+            remoteUsername: callerName || 'Unknown',
+          });
+        } else {
+          navigation.navigate('IncomingCall', {
+            channelName,
+            caller: callerName || 'Unknown',
+            fromUserId,
+          });
+        }
       }
     });
 
+    channel.on('broadcast', { event: 'call_end' }, () => {
+      isInCall.current = false;
+    });
+
+    channel.subscribe();
+
     return () => {
-      unsub();
+      supabase.removeChannel(channel);
       isInCall.current = false;
     };
-  }, [subscribe, navigation]);
+  }, [user, navigation]);
 
   return null;
 }
