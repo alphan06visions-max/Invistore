@@ -6,7 +6,7 @@ workflows:
     max_build_duration: 60
     environment:
       node: 20.11.0
-      android_signing: none
+      android_signing: []
     scripts:
       - name: Install dependencies
         script: |
