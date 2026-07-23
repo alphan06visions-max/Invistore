@@ -1,0 +1,29 @@
+# Codemagic YAML — Build APK for NEXUS React Native (Expo) app
+# Works with the "React Native" project type on Codemagic
+workflows:
+  nexus-android-apk:
+    name: NEXUS Android APK
+    max_build_duration: 60
+    environment:
+      node: 20.11.0
+      groups:
+        - nexus-env  # on peut ajouter envar ici plus tard
+      vars:
+        EXPO_PUBLIC_API_URL: https://nexus-backend.fly.dev
+        EXPO_PUBLIC_WS_URL: wss://nexus-backend.fly.dev/ws
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd mobile
+          npm install
+      - name: Build Android APK (preview)
+        script: |
+          cd mobile
+          npx eas-cli build --platform android --profile preview --non-interactive
+    artifacts:
+      - mobile/*.aab
+      - mobile/*.apk
+    publishing:
+      email:
+        recipients:
+          - ismail10mafia@gmail.com
