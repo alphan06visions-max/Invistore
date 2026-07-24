@@ -12,7 +12,7 @@ workflows:
       - name: Copy keystore
         script: cp mobile/android-signing/fridr.keystore mobile/android/app/fridr.keystore
       - name: Configure signing
-        script: bash mobile/android-signing/configure_build.sh
+        script: cd mobile && node android-signing/configure_signing.js
       - name: Build APK
         script: cd mobile/android && ./gradlew assembleRelease
     artifacts:

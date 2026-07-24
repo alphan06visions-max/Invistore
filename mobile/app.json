@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0d0a06"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -29,11 +31,24 @@
         "CAMERA",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "keystorePath": "fridr.keystore",
+      "keystorePassword": "fridr2026!",
+      "keyAlias": "fridr",
+      "keyPassword": "fridr2026!"
     },
     "plugins": [
       "expo-font",
-      "expo-image-picker"
+      "expo-image-picker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class com.fridr.app.** { *; }",
+            "extraMavenRepos": []
+          }
+        }
+      ]
     ]
   }
 }
