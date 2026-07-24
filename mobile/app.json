@@ -11,9 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#0d0a06"
     },
-    "assetBundlePatterns": [
-      "*/*"
-    ],
+    "assetBundlePatterns": ["*/*"],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -27,15 +25,19 @@
         "backgroundColor": "#0d0a06"
       },
       "package": "com.fridr.app",
-      "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
-      ]
+      "permissions": ["CAMERA","RECORD_AUDIO","MODIFY_AUDIO_SETTINGS"]
     },
     "plugins": [
       "expo-font",
-      "expo-image-picker"
+      "expo-image-picker",
+      ["expo-build-properties", {
+        "android": {
+          "kotlinVersion": "1.9.25",
+          "compileSdk": 35,
+          "targetSdk": 35,
+          "buildToolsVersion": "35.0.0"
+        }
+      }]
     ]
   }
 }
