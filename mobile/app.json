@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "NEXUS",
-    "slug": "nexus-social",
+    "name": "Fridr",
+    "slug": "fridr",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0a06"
       },
-      "package": "com.nexus.social",
+      "package": "com.fridr.app",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
