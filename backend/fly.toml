@@ -2,21 +2,22 @@ app = "nexus-backend"
 primary_region = "ams"
 
 [build]
-  image = "nexus-backend:latest"
 
 [env]
   PORT = "8080"
+  JWT_SECRET = "MaFia10NexusSecretKey2024!"
   AGORA_APP_ID = ""
   AGORA_APP_CERTIFICATE = ""
   STREAM_API_KEY = "tdkqnce9zrxw"
   STREAM_API_SECRET = "gjgexvaptnrhsfwy28zcusqrvdddztetbhcnjx7kjakcbtyjch4gyjp2xqhs76yv"
+  CLOUDINARY_URL = ""
 
 [http_service]
   internal_port = 8080
   force_https = true
   auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   size = "shared-cpu-1x"
