@@ -1,14 +1,13 @@
 FROM golang:1.23-alpine AS builder
 WORKDIR /src
+RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags='-s -w' -o /out/nexus ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags='-s -w' -o nexus ./cmd
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
-WORKDIR /app
-COPY --from=builder /out/nexus /app/nexus
+COPY --from=builder /src/nexus /nexus
 EXPOSE 8080
-ENV PORT=8080
-CMD ["/app/nexus"]
+CMD ["/nexus"]
