@@ -4,13 +4,40 @@ workflows:
     max_build_duration: 60
     environment:
       node: 20.11.0
-      android_signing:
-        - fridr_keystore
     scripts:
-      - name: Install
+      - name: Install deps
         script: cd mobile && npm install
-      - name: Prebuild
+      - name: Prebuild Android
         script: cd mobile && npx expo prebuild --platform android --clean
+      - name: Copy keystore
+        script: cp mobile/android-signing/fridr.keystore mobile/android/app/fridr.keystore
+      - name: Configure signing in build.gradle
+        script: |
+          cat > mobile/android/app/build.gradle.patch << 'PATCHEOF'
+          apply plugin: "com.android.application"
+          apply plugin: "com.facebook.react"
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file("fridr.keystore")
+                      storePassword "fridr2026!"
+                      keyAlias "fridr"
+                      keyPassword "fridr2026!"
+                  }
+              }
+          PATCHEOF
+          # Insert signing config in build.gradle
+          sed -i '/buildTypes {/i\
+              signingConfigs {\
+                  release {\
+                      storeFile file("fridr.keystore")\
+                      storePassword "fridr2026!"\
+                      keyAlias "fridr"\
+                      keyPassword "fridr2026!"\
+                  }\
+              }' mobile/android/app/build.gradle
+          # Add signingConfig to release buildType
+          sed -i '/release {/a\            signingConfig signingConfigs.release' mobile/android/app/build.gradle
       - name: Build APK
         script: cd mobile/android && ./gradlew assembleRelease
     artifacts:
