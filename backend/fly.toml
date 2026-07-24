@@ -8,6 +8,8 @@ primary_region = "ams"
   PORT = "8080"
   AGORA_APP_ID = ""
   AGORA_APP_CERTIFICATE = ""
+  STREAM_API_KEY = "tdkqnce9zrxw"
+  STREAM_API_SECRET = "gjgexvaptnrhsfwy28zcusqrvdddztetbhcnjx7kjakcbtyjch4gyjp2xqhs76yv"
 
 [http_service]
   internal_port = 8080

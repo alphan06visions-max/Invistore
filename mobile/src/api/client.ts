@@ -1,174 +1,54 @@
-// API client — Supabase for chat/auth, REST fallback for posts/calls
-import { supabase } from './supabase';
+// Friðr API client — REST calls to Go backend
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const BASE_URL = 'https://nexus-backend.fly.dev';
 
-// ---------- Supabase Messages (Realtime) ----------
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await AsyncStorage.getItem('nexus_token');
+  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+}
 
-export type Message = {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  read_at: string | null;
-};
+async function _req(path: string, options: RequestInit = {}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers: { ...headers, ...options.headers } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
 
-export type Conversation = {
-  id: string;
-  participants: string[];
-  last_message: string | null;
-  last_message_at: string | null;
-  other_user: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-  } | null;
-};
-
-export const db = {
-  // Conversations
-  conversations: async (userId: string) => {
-    // Get all conversations where user is a participant
-    const { data } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId);
-    if (!data) return [];
-    const ids = data.map((d) => d.conversation_id);
-
-    const { data: convos } = await supabase
-      .from('conversations')
-      .select('*')
-      .in('id', ids)
-      .order('last_message_at', { ascending: false });
-    return (convos || []) as Conversation[];
+export const api = {
+  request: _req,
+  feed: () => _req('/api/posts'),
+  search: (q: string) => _req(`/api/users/search?q=${encodeURIComponent(q)}`),
+  profile: (u: string) => _req(`/api/users/${u}`),
+  post: (id: string) => _req(`/api/posts/${id}`),
+  comments: (id: string) => _req(`/api/posts/${id}/comments`),
+  userPosts: (u: string) => _req(`/api/users/${u}/posts`),
+  toggleLike: (id: string) => _req(`/api/posts/${id}/like`, { method: 'POST' }),
+  addComment: (id: string, c: string) => _req(`/api/posts/${id}/comments`, { method: 'POST', body: JSON.stringify({ content: c }) }),
+  createPost: (image_url: string, caption?: string, location?: string) =>
+    _req('/api/posts', { method: 'POST', body: JSON.stringify({ image_url, caption: caption || '', location: location || '' }) }),
+  toggleFollow: (u: string) => _req(`/api/users/${u}/follow`, { method: 'POST' }),
+  notifications: () => _req('/api/notifications'),
+  upload: async (uri: string) => {
+    const fd = new FormData(); fd.append('file', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+    const token = await AsyncStorage.getItem('nexus_token');
+    const res = await fetch(`${BASE_URL}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const d = await res.json(); if (!res.ok) throw new Error(d.error); return d;
   },
-
-  // Messages thread
-  thread: async (conversationId: string) => {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-    return (data || []) as Message[];
+  uploadImage: async (uri: string) => {
+    const fd = new FormData(); fd.append('file', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+    const token = await AsyncStorage.getItem('nexus_token');
+    const res = await fetch(`${BASE_URL}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const d = await res.json(); if (!res.ok) throw new Error(d.error); return d;
   },
-
-  // Send message
-  sendMessage: async (conversationId: string, senderId: string, content: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id: senderId,
-        content,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Message;
-  },
-
-  // Mark messages as read
-  markRead: async (conversationId: string, userId: string) => {
-    await supabase
-      .from('messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('conversation_id', conversationId)
-      .neq('sender_id', userId)
-      .is('read_at', null);
-  },
-
-  // Get or create 1-1 conversation
-  getOrCreateConversation: async (userId: string, otherUserId: string) => {
-    // Check existing
-    const { data: myConvos } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId);
-    const myIds = (myConvos || []).map((c) => c.conversation_id);
-
-    if (myIds.length > 0) {
-      const { data: shared } = await supabase
-        .from('conversation_participants')
-        .select('conversation_id')
-        .eq('user_id', otherUserId)
-        .in('conversation_id', myIds);
-      if (shared && shared.length > 0) return shared[0].conversation_id;
-    }
-
-    // Create new
-    const { data: conv } = await supabase
-      .from('conversations')
-      .insert({ is_group: false })
-      .select()
-      .single();
-    if (!conv) throw new Error('Failed to create conversation');
-
-    // Add participants
-    await supabase.from('conversation_participants').insert([
-      { conversation_id: conv.id, user_id: userId },
-      { conversation_id: conv.id, user_id: otherUserId },
-    ]);
-
-    return conv.id;
-  },
-
-  // Realtime subscription
-  subscribeToMessages: (
-    conversationId: string,
-    onInsert: (msg: Message) => void,
-    onUpdate: (msg: Message) => void,
-  ) => {
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => onInsert(payload.new as Message),
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => onUpdate(payload.new as Message),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  },
-
-  // Typing indicator via Supabase Presence (simplified)
-  subscribeTyping: (
-    conversationId: string,
-    userId: string,
-    onTyping: (userId: string) => void,
-  ) => {
-    const channel = supabase.channel(`typing:${conversationId}`, {
-      config: { presence: { key: userId } },
-    });
-    channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState();
-      Object.keys(state).forEach((key) => {
-        if (key !== userId) onTyping(key);
-      });
-    });
-    channel.subscribe();
-    return channel;
-  },
-
-  sendTyping: (channel: any) => {
-    channel.track({ typing: true });
+  register: (email: string, username: string, password: string) =>
+    _req('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, username, password }) }),
+  login: (email: string, password: string) =>
+    _req('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  getStreamToken: async () => {
+    const token = await AsyncStorage.getItem('nexus_token');
+    const res = await fetch(`${BASE_URL}/api/stream/token`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }});
+    const d = await res.json(); if (!res.ok) throw new Error(d.error); return d;
   },
 };
+export const BASE_URL_CONST = BASE_URL;

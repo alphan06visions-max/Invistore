@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, G, Circle } from 'react-native-svg';
+import Svg, { Path, G, Circle, Rect } from 'react-native-svg';
 
 type IconProps = { size?: number; color?: string; fill?: string; style?: any };
 
@@ -149,4 +149,17 @@ export function PhoneOff({ size = 24, color = '#fff', style }: IconProps) {
       <Path d="M4.5 3.5c-.5.8-.88 1.66-1.13 2.56" />
     </Svg>
   );
+}
+
+export function Mic({ size=24, color='#fff', style }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}><Path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><Path d="M19 10v2a7 7 0 0 1-14 0v-2"/><Path d="M12 19v4"/><Path d="M8 23h8"/></Svg>;
+}
+export function MicOff({ size=24, color='#fff', style }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}><Path d="M1 1l22 22"/><Path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><Path d="M17 16.95A7 7 0 0 1 5 12v-2"/></Svg>;
+}
+export function VideoOff({ size=24, color='#fff', style }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}><Path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v4.34l1 1L23 7v10"/><Path d="M1 1l22 22"/></Svg>;
+}
+export function CameraSwitch({ size=24, color='#fff', style }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}><Path d="M1 17V7a2 2 0 0 1 2-2h4l2-2h6l2 2h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z"/><Path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><Path d="M23 17l-4-4-4 4"/></Svg>;
 }

@@ -1,29 +1,17 @@
-# Codemagic YAML — NEXUS Build (Expo + Gradle natif)
-# Supabase + Agora ready
 workflows:
-  nexus-android-apk:
-    name: NEXUS Android APK
+  fridr-android:
+    name: Friðr Android APK
     max_build_duration: 60
     environment:
       node: 20.11.0
       android_signing:
-        - nexus_keystore
-      vars:
-        EXPO_PUBLIC_SUPABASE_URL: https://YOUR_PROJECT.supabase.co
-        EXPO_PUBLIC_SUPABASE_ANON_KEY: your-anon-key
-        EXPO_PUBLIC_AGORA_APP_ID: your-agora-app-id
+        - fridr_keystore
     scripts:
-      - name: Install dependencies
-        script: |
-          cd mobile
-          npm install
-      - name: Prebuild Android project
-        script: |
-          cd mobile
-          npx expo prebuild --platform android --clean
-      - name: Build APK with Gradle
-        script: |
-          cd mobile/android
-          ./gradlew assembleRelease
+      - name: Install
+        script: cd mobile && npm install
+      - name: Prebuild
+        script: cd mobile && npx expo prebuild --platform android --clean
+      - name: Build APK
+        script: cd mobile/android && ./gradlew assembleRelease
     artifacts:
       - mobile/android/app/build/outputs/apk/release/app-release.apk

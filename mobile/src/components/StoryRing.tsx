@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   wrap: { alignItems: 'center', width: 72 },
   ring: { padding: 3, alignItems: 'center', justifyContent: 'center' },
   ringActive: {
-    background: 'conic-gradient(from 180deg, #d4852c, #e0432f, #f0b854, #d4852c)',
+    backgroundColor: 'conic-gradient(from 180deg, #d4852c, #e0432f, #f0b854, #d4852c)',
   },
   label: { color: '#7a6f5d', fontSize: 11, marginTop: 6, maxWidth: 72, textAlign: 'center' },
   plusBadge: {

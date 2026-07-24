@@ -44,6 +44,7 @@ func main() {
 	api.GET("/notifications", internal.GetNotifications)
 	api.POST("/upload", internal.UploadImage)
 	api.POST("/call/token", internal.GenerateAgoraToken)
+	api.POST("/stream/token", internal.GenerateStreamToken)
 	r.GET("/ws", func(c *gin.Context) { internal.AuthMiddleware(cfg)(c); if !c.IsAborted() { internal.HandleWS(c) } })
 	log.Printf("nexus listening on :%s", cfg.Port)
 	r.Run(":" + cfg.Port)
