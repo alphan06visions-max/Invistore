@@ -11,33 +11,8 @@ workflows:
         script: cd mobile && npx expo prebuild --platform android --clean
       - name: Copy keystore
         script: cp mobile/android-signing/fridr.keystore mobile/android/app/fridr.keystore
-      - name: Configure signing in build.gradle
-        script: |
-          cat > mobile/android/app/build.gradle.patch << 'PATCHEOF'
-          apply plugin: "com.android.application"
-          apply plugin: "com.facebook.react"
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file("fridr.keystore")
-                      storePassword "fridr2026!"
-                      keyAlias "fridr"
-                      keyPassword "fridr2026!"
-                  }
-              }
-          PATCHEOF
-          # Insert signing config in build.gradle
-          sed -i '/buildTypes {/i\
-              signingConfigs {\
-                  release {\
-                      storeFile file("fridr.keystore")\
-                      storePassword "fridr2026!"\
-                      keyAlias "fridr"\
-                      keyPassword "fridr2026!"\
-                  }\
-              }' mobile/android/app/build.gradle
-          # Add signingConfig to release buildType
-          sed -i '/release {/a\            signingConfig signingConfigs.release' mobile/android/app/build.gradle
+      - name: Configure signing
+        script: bash mobile/android-signing/configure_build.sh
       - name: Build APK
         script: cd mobile/android && ./gradlew assembleRelease
     artifacts:
