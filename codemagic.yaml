@@ -7,12 +7,10 @@ workflows:
     scripts:
       - name: Install deps
         script: cd mobile && npm install
-      - name: Prebuild Android
+      - name: Prebuild Android (auto-signing via plugin)
         script: cd mobile && npx expo prebuild --platform android --clean
-      - name: Copy keystore
+      - name: Copy keystore to android/app
         script: cp mobile/android-signing/fridr.keystore mobile/android/app/fridr.keystore
-      - name: Configure signing
-        script: cd mobile && node android-signing/configure_signing.js
       - name: Build APK
         script: cd mobile/android && ./gradlew assembleRelease
     artifacts:
