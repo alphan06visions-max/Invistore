@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Fridr",
-    "slug": "fridr",
+    "name": "Memoria",
+    "slug": "memoria",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,33 +11,43 @@
       "resizeMode": "contain",
       "backgroundColor": "#0d0a06"
     },
-    "assetBundlePatterns": ["*/*"],
+    "assetBundlePatterns": [
+      "*/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Fridr needs access to your photos for posting moments.",
-        "NSMicrophoneUsageDescription": "Fridr needs microphone access for calls."
-      }
+        "NSPhotoLibraryUsageDescription": "Memoria needs access to your photos for posting moments.",
+        "NSMicrophoneUsageDescription": "Memoria needs microphone access for calls."
+      },
+      "bundleIdentifier": "com.memoria.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0a06"
       },
-      "package": "com.fridr.app",
-      "permissions": ["CAMERA","RECORD_AUDIO","MODIFY_AUDIO_SETTINGS"]
+      "package": "com.memoria.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "plugins": [
       "expo-font",
       "expo-image-picker",
-      ["expo-build-properties", {
-        "android": {
-          "kotlinVersion": "1.9.25",
-          "compileSdk": 35,
-          "targetSdk": 35,
-          "buildToolsVersion": "35.0.0"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25",
+            "compileSdk": 35,
+            "targetSdk": 35,
+            "buildToolsVersion": "35.0.0"
+          }
         }
-      }]
+      ]
     ]
   }
 }
