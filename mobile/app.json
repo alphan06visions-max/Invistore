@@ -11,14 +11,12 @@
       "resizeMode": "contain",
       "backgroundColor": "#0d0a06"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["*/*"],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "NEXUS needs access to your photos for posting moments.",
-        "NSMicrophoneUsageDescription": "NEXUS needs microphone access for calls."
+        "NSPhotoLibraryUsageDescription": "Fridr needs access to your photos for posting moments.",
+        "NSMicrophoneUsageDescription": "Fridr needs microphone access for calls."
       }
     },
     "android": {
@@ -27,28 +25,8 @@
         "backgroundColor": "#0d0a06"
       },
       "package": "com.fridr.app",
-      "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
-      ],
-      "keystorePath": "fridr.keystore",
-      "keystorePassword": "fridr2026!",
-      "keyAlias": "fridr",
-      "keyPassword": "fridr2026!"
+      "permissions": ["CAMERA","RECORD_AUDIO","MODIFY_AUDIO_SETTINGS"]
     },
-    "plugins": [
-      "expo-font",
-      "expo-image-picker",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "extraProguardRules": "-keep class com.fridr.app.** { *; }",
-            "extraMavenRepos": []
-          }
-        }
-      ]
-    ]
+    "plugins": ["expo-font","expo-image-picker","./plugins/withAndroidSigning"]
   }
 }
