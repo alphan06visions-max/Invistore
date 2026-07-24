@@ -1,6 +1,6 @@
 // Friðr API client — REST calls to Go backend
 import AsyncStorage from '@react-native-async-storage/async-storage';
-const BASE_URL = 'https://memoria-kthh.onrender.com';
+const BASE_URL = 'https://memoria-djb6.onrender.com';
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await AsyncStorage.getItem('nexus_token');
