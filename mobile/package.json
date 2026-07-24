@@ -2,7 +2,12 @@
   "name": "fridr-mobile",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": { "start": "expo start", "android": "expo start --android", "ios": "expo start --ios", "web": "expo start --web" },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -22,6 +27,9 @@
     "stream-chat": "^8.47.0",
     "react-native-agora": "^4.3.0"
   },
-  "devDependencies": { "@types/react": "~18.3.0", "typescript": "^5.3.0" },
+  "devDependencies": {
+    "@types/react": "~18.3.0",
+    "typescript": "^5.3.0"
+  },
   "private": true
 }

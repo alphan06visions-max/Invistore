@@ -1,16 +1,18 @@
 workflows:
   fridr-android:
-    name: Friðr Android APK
+    name: Fridr Android APK
     max_build_duration: 60
     environment:
       node: 20.11.0
     scripts:
       - name: Install deps
         script: cd mobile && npm install
-      - name: Prebuild Android (auto-signing via plugin)
+      - name: Prebuild Android
         script: cd mobile && npx expo prebuild --platform android --clean
-      - name: Copy keystore to android/app
+      - name: Copy keystore
         script: cp mobile/android-signing/fridr.keystore mobile/android/app/fridr.keystore
+      - name: Configure signing
+        script: python3 mobile/android-signing/configure_signing.py
       - name: Build APK
         script: cd mobile/android && ./gradlew assembleRelease
     artifacts:

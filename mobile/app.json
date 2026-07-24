@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0d0a06"
     },
-    "assetBundlePatterns": ["*/*"],
+    "assetBundlePatterns": [
+      "*/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -25,8 +27,15 @@
         "backgroundColor": "#0d0a06"
       },
       "package": "com.fridr.app",
-      "permissions": ["CAMERA","RECORD_AUDIO","MODIFY_AUDIO_SETTINGS"]
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
     },
-    "plugins": ["expo-font","expo-image-picker","./plugins/withAndroidSigning"]
+    "plugins": [
+      "expo-font",
+      "expo-image-picker"
+    ]
   }
 }
