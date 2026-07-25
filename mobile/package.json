@@ -9,14 +9,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.0",
     "expo-build-properties": "~0.13.0",
     "expo-font": "~13.0.0",
-    "expo-image-picker": "~16.0.0",
     "expo-linear-gradient": "~14.0.0",
     "expo-status-bar": "~2.0.0",
     "expo-system-ui": "~4.0.0",
@@ -27,8 +25,7 @@
     "react-native-screens": "~4.4.0",
     "@react-native-async-storage/async-storage": "~2.1.0",
     "react-native-svg": "~15.8.0",
-    "stream-chat": "^8.47.0",
-    "react-native-agora": "^4.3.0"
+    "stream-chat": "^8.47.0"
   },
   "devDependencies": {
     "@types/react": "~18.3.0",

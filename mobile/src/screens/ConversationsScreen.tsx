@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Image, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
+import { Search } from '../components/icons';
 import { streamClient } from '../api/streamClient';
 import { ChevronLeft, MessageCircle } from '../components/icons';
 
 type Prev = { id:string; name:string; avatar:string; lastMessage:string; lastMessageAt:Date; unread:number; otherUserId:string };
 
 export function ConversationsScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [chans, setChans] = useState<Prev[]>([]);
   const [loading, setLoading] = useState(true);
   const [r, setR] = useState(false);
@@ -29,15 +30,22 @@ export function ConversationsScreen({ navigation }: any) {
 
   useEffect(() => { (async()=>{setLoading(true);await load();setLoading(false);})(); }, [load]);
 
-  const open = (c:Prev) => navigation.navigate('ChatThread',{ channelId:c.id, otherUser:{ id:c.otherUserId||c.id, username:c.name, displayName:c.name, avatarUrl:c.avatar } });
+    const open = (c:Prev) => navigation.navigate('ChatThread',{ channelId:c.id, otherUser:{ id:c.otherUserId||c.id, username:c.name, displayName:c.name, avatarUrl:c.avatar } });
   const ago = (d:Date) => { const s=Math.floor((Date.now()-d.getTime())/1000); if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'; };
 
   return (
     <View style={{flex:1,backgroundColor:'#0a0a0a'}}>
       <LinearGradient colors={['#0d1117','#0a1628','#09060d']} style={StyleSheet.absoluteFill}/>
       <View style={ss.header}>
-        <TouchableOpacity onPress={()=>navigation.goBack()}><ChevronLeft size={24} color="#fff"/></TouchableOpacity>
-        <Text style={ss.title}>Messages</Text><View style={{width:40}}/>
+        <Text style={ss.title}>Memoria</Text>
+        <View style={{flexDirection:'row',gap:12}}>
+          <TouchableOpacity onPress={()=>navigation.navigate('Explore')} style={ss.hdrBtn}>
+            <Search size={20} color="#fff"/>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={()=>signOut()} style={ss.hdrBtn}>
+            <Text style={{color:'#fca5a5',fontSize:13,fontWeight:'600'}}>Exit</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {loading?<View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator color="#6366f1" size="large"/></View>:
       chans.length===0?<View style={{flex:1,justifyContent:'center',alignItems:'center',padding:40}}><MessageCircle size={48} color="rgba(255,255,255,0.15)"/><Text style={{color:'rgba(255,255,255,0.4)',fontSize:16,marginTop:16,textAlign:'center'}}>No messages yet{'\n'}Start one from a profile!</Text></View>:
@@ -68,4 +76,5 @@ const ss=StyleSheet.create({
   lm:{color:'rgba(255,255,255,0.5)',fontSize:14,flex:1},
   badge:{backgroundColor:'#6366f1',borderRadius:10,minWidth:20,height:20,justifyContent:'center',alignItems:'center',paddingHorizontal:6,marginLeft:8},
   badgeT:{color:'#fff',fontSize:11,fontWeight:'700'},
+  hdrBtn:{width:38,height:38,borderRadius:19,backgroundColor:'rgba(255,255,255,0.06)',justifyContent:'center',alignItems:'center'},
 });
